@@ -1,0 +1,36 @@
+participant "Source vm" as src
+participant vSPC
+participant "Destination vm" as dst
+
+note over src: Power On or "connect" operation
+src->vSPC: connect
+vSPC->src: connected
+note over vSPC src: Telnet negotiation (ECHO, BINARY, SGA, AUTH)
+vSPC->src: DO VMWARE-EXT
+note over vSPC src: VMWARE-TELNET-EXT negotiation
+src->vSPC: DO PROXY
+vSPC->src: WILL PROXY
+src->vSPC: WILL COMPORT
+vSPC->src: DONT COMPORT (usually)
+src-->vSPC: Serial port data
+note over src vSPC: \nTime passes...\n
+note over src: vMotion requested
+src->dst: vMotion preparation (might take seconds/minutes or longer)
+state over src: Prepare to save\nvMotion downtime begins now!
+src->vSPC: VMOTION-BEGIN(id)
+vSPC->src: VMOTION-GOAHEAD(id, secret)
+src->dst: vMotion transfers final VM state (incl. id, secret) to destination
+dst->vSPC: connect
+vSPC->dst: connected
+note over vSPC dst: Telnet negotiation (ECHO, BINARY, SGA, AUTH)
+vSPC->dst: DO VMWARE-EXT
+note over vSPC dst: VMWARE-TELNET-EXT negotiation
+dst->vSPC: VMOTION-PEER(id, secret)
+vSPC->dst: VMOTION-PEER-OK(id)
+dst->vSPC: VMOTION-COMPLETE
+note over dst: Resume execution\nvMotion downtime ends now!
+dst->src: vMotion success
+destroy src
+note over src: Source VM terminated
+note over dst: Destination VM is running
+dst-->vSPC: Serial port data
