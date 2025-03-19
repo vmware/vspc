@@ -1,0 +1,76 @@
+The Basic Telnet Protocol Stack
+===============================
+
+
+   + TelnetConnection -------------+
+   |                               |
+   |   options{}: BINARY option -------> TelnetBinaryOption instance
+   |                               |     (them: YES, us: YES)
+   |                               |
+   |              SGA option ----------> TelnetSuppressGoAheadOption instance
+   |                               |     (them: YES, us: YES)
+   |                               |
+   |              other option(s) -----> TelnetOption subclass instance
+   |                               |     (them: YES, us: YES)
+   |  telnet                       |
+   |    \                          |
+   +---- \ ------------------------+
+          \
+           + TelnetProtocol -----+
+           |                     |
+           |      decoder  ---------> + TelnetProtocolStreamDecoder ---+
+           |                     |    |                                |
+           |   writer            |    |    reader                      |
+           |      \              |    |       \                        |
+           +-------\-------------+    +--------\-----------------------+
+                    \                           \
+                     + asyncio.StreamWriter       + asyncio.StreamReader
+
+The TelnetConnection embodies a connection to another Telnet host, including
+the set of options "known" by our side of the connection (subclasses of
+TelnetOption) and the state of each of those options for each party to the
+connection.
+
+The connection's TelnetProtocol instance handles all of the encoding and
+decoding of the Telnet wire protocol; The TelnetProtocolStreamDecoder keeps all
+the state related to the incoming Telnet stream and its decoding.
+
+
+Implementing Telnet Options
+===========================
+
+The existing Telnet option implementations should be a good starting point for
+implementing new ones.
+
+Option implementations should primarily provide decoding/encoding of
+subnegotiation data (if applicable) and generic logic relevant to all consumers
+of the option.  The option implementation should hide the protocol details,
+providing a level of abstraction for the use of subclasses or applications who
+won't need to have any understanding of the option's negotiation flow, option
+subnegotiation protocol, etc.
+
+Override the constructor to take any additional arguments needed for the core
+of the option's implementation.
+
+Override "should_accept" to control whether we should accept or reject the
+option for either party ("us" and/or "them").
+
+Override "state_change" to implement specific behaviors when the option is
+activated/deactivated by either party.
+
+Override "subnegotiate" to implement option-specific processing of
+subnegotiation data received.
+
+Method "request" is available for use by subclasses or applications wishing to
+request the option be activated/deactivated for either party.
+
+Method "send_subnegotiation" is available for use by subclasses wishing to
+transmit an option subnegotiation message back to the other party.
+
+
+Utilizing Telnet Options
+========================
+
+An application making use of a Telnet option should further subclass the Telnet
+Option class, employing the abstractions and hooks provided by the Option class
+to provide application-specific functionality.
